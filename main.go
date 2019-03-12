@@ -66,6 +66,11 @@ func main() {
 		fmt.Fprintln(w, "ok")
 	})
 
+	// a HandleFunc that panics the request
+	http.HandleFunc("/panic/", func(w http.ResponseWriter, r *http.Request) {
+		panic("glitching")
+	})
+
 	// Initialize a server
 	server := http.Server{Addr: fmt.Sprintf(":%d", *port)}
 	server.SetKeepAlivesEnabled(false)
