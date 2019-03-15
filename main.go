@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -39,7 +40,7 @@ var (
 func main() {
 	flag.Parse()
 
-	// a simple HandleFunc that delays the response of a request.
+	// a HandleFunc that delays the response of a request.
 	// The delay duration is the second part of the URL path (in milliseconds), eg:
 	// A request to /delay/100 will sleep for 100ms before sending the response.
 	http.HandleFunc("/delay/", func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +71,41 @@ func main() {
 	http.HandleFunc("/panic/", func(w http.ResponseWriter, r *http.Request) {
 		panic("glitching")
 	})
+
+	// a HandleFunc that responds with the HTTP status code and message contained in the URL
+	// The status code is the second part of the URL, and the message is an optional third part, eg:
+	// A request to /status/503/abcd will respond with a HTTP 503 error and a body of "abcd".
+	http.HandleFunc("/status/", func(w http.ResponseWriter, r *http.Request) {
+		// Attempt to parse the status and message from the URL
+		sp := strings.SplitN(r.URL.Path, "/", 4)
+		if len(sp) < 3 {
+			w.WriteHeader(http.StatusNotImplemented)
+			fmt.Fprintf(w, "the URL is missing a numeric status code")
+			return
+		}
+
+		// index 2 is the status code
+		sc, err := strconv.Atoi(sp[2])
+		if err != nil {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			fmt.Fprintf(w, "Expected a number. Unable to parse %s as a number: %v\n", sp[2], err)
+			return
+		}
+		if sc < 0 || sc > 1000 {
+			w.WriteHeader(http.StatusUnavailableForLegalReasons)
+			fmt.Fprintf(w, "The value %d is not permitted, out of the range of sensibility for HTTP", sc)
+			return
+		}
+
+		// Write the header
+		w.WriteHeader(sc)
+		if len(sp) > 3 {
+			// Write the message as well
+			fmt.Fprintln(w, sp[3])
+		}
+	})
+
+
 
 	// Initialize a server
 	server := http.Server{Addr: fmt.Sprintf(":%d", *port)}
